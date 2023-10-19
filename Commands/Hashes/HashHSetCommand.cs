@@ -35,7 +35,7 @@ public static class HashHSet
                     Key = hashKey,
                     Value = hashFieldEntries
                         .Select(e => new KeyValuePair<string, byte[]>(e[0], Encoding.UTF8.GetBytes(e[1])))
-                        .ToDictionary()
+                        .ToDictionary(_ => _.Key, _ => _.Value)
                 };
 
                 _cache.Set(hashKey, hashCacheEntry);

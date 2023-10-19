@@ -6,4 +6,9 @@ public static class EnumerableExtensions
         this IEnumerable<string> values,
         string symbol)
         => string.Join(symbol, values);
+
+    public static int IndexOf<T>(
+        this T[] array,
+        Predicate<T> predicate)
+        => Array.IndexOf(array, predicate);
 }
