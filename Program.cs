@@ -4,6 +4,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PyroCache.Extensions;
 using PyroCache.Filters;
+using PyroCache.Jobs;
+using PyroCache.Settings;
 using SuperSocket;
 using SuperSocket.Command;
 using SuperSocket.ProtoBase;
@@ -25,12 +27,13 @@ var hostBuilder = SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePi
             opts.AddCommandAssembly(Assembly.GetExecutingAssembly());
             opts.AddGlobalCommandFilter<ValidateCommandFilterAttribute>();
             opts.AddGlobalCommandFilter<CacheEntryPurgerFilterAttribute>();
-            
         })
         .UseEnvironment(Environments.Development)
-        .ConfigureServices(services =>
+        .ConfigureServices((ctx, services) =>
             services
                 .AddSingleton<PyroCache.PyroCache>()
+                .AddSettings<CacheSettings>(ctx.Configuration)
+                .AddHostedService<CachePersisterWorker>()
                 .AddValidators(Assembly.GetExecutingAssembly()));
 
     hostBuilder

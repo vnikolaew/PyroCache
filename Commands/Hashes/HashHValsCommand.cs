@@ -5,14 +5,14 @@ using SuperSocket;
 using SuperSocket.Command;
 using SuperSocket.ProtoBase;
 
-namespace PyroCache.Commands;
+namespace PyroCache.Commands.Hashes;
 
-public static class StringLen
+public static class HashHVals
 {
     /// <summary>
-    /// STRLEN ke 
+    /// HVALS key
     /// </summary>
-    [Command(Key = "STRLEN")]
+    [Command(Key = "HVALS")]
     public sealed class Command : BasePyroCommand
     {
         public Command(PyroCache cache) : base(cache)
@@ -23,23 +23,21 @@ public static class StringLen
             IAppSession session,
             StringPackageInfo package)
         {
-            var stringKey = package.Parameters[0].Trim();
-            if (!_cache.TryGet<StringCacheEntry>(stringKey, out var cacheEntry))
+            var hashKey = package.Parameters[0].Trim();
+            _cache.TryGet<ICacheEntry>(hashKey, out var entry);
+            if (entry is not HashCacheEntry hashCacheEntry)
             {
-                await session.SendStringAsync($"{Zero}\n");
+                await session.SendStringAsync($"{Nil}\n");
                 return;
             }
 
-            if (cacheEntry!.IsExpired)
-            {
-                // Set item for purging:
-                SetItemForPurging(session, cacheEntry);
-                await session.SendStringAsync($"{Zero}\n");
-                return;
-            }
+            hashCacheEntry.LastAccessedAt = DateTimeOffset.Now;
+            var response = string.Join("\n",
+                hashCacheEntry.Values.Select((key,
+                        i) => $"{i + 1}) {key}")
+            );
 
-            cacheEntry.LastAccessedAt = DateTimeOffset.Now;
-            await session.SendStringAsync($"{cacheEntry.Value.Length}\n");
+            await session.SendStringAsync($"{response}\n");
         }
     }
 
@@ -56,10 +54,10 @@ public static class StringLen
                 return ValueTask.FromResult(ValidationResult.Failure("Incorrect number of parameters."));
             }
 
-            var stringKey = parameters[0].Trim();
-            if (stringKey.Length * 2 > StringKeySizeLimitInBytes)
+            var hashKey = parameters[0].Trim();
+            if (hashKey.Length * 2 > StringKeySizeLimitInBytes)
             {
-                return ValueTask.FromResult(ValidationResult.Failure("String key exceeds maximum limit of 1KB."));
+                return ValueTask.FromResult(ValidationResult.Failure("Hash key exceeds maximum limit of 1KB."));
             }
 
             return ValueTask.FromResult(ValidationResult.Success());

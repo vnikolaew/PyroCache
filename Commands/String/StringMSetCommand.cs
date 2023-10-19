@@ -5,7 +5,7 @@ using SuperSocket;
 using SuperSocket.Command;
 using SuperSocket.ProtoBase;
 
-namespace PyroCache.Commands;
+namespace PyroCache.Commands.String;
 
 public static class StringMSet
 {

@@ -5,40 +5,47 @@ using SuperSocket;
 using SuperSocket.Command;
 using SuperSocket.ProtoBase;
 
-namespace PyroCache.Commands;
+namespace PyroCache.Commands.String;
 
-public static class StringSetEx
+public static class StringGetSet
 {
     /// <summary>
     /// SET key seconds value
     /// </summary>
-    [Command(Key = "SETEX")]
+    [Command(Key = "GETSET")]
     public sealed class Command : BasePyroCommand
     {
         public Command(PyroCache cache) : base(cache)
         {
         }
 
-        protected override ValueTask ExecuteCoreAsync(
+        protected override async ValueTask ExecuteCoreAsync(
             IAppSession session,
             StringPackageInfo package)
         {
             var stringKey = package.Parameters[0].Trim();
-            var expiryInSeconds = int.TryParse(package.Parameters[1].Trim(),
-                out var value) ? value : 0;
-            var stringValue = package.Parameters[2].Trim();
+            var stringValue = package.Parameters[1].Trim();
 
-            var cacheEntry = new StringCacheEntry
+            if (!_cache.TryGet<StringCacheEntry>(stringKey, out var cacheEntry))
             {
-                Key = stringKey,
-                Value = stringValue,
-                CreatedAt = DateTimeOffset.Now,
-                LastAccessedAt = DateTimeOffset.Now,
-                TimeToLive = TimeSpan.FromSeconds(expiryInSeconds)
-            };
+                await session.SendStringAsync($"{Nil}\n");
+                return;
+            }
+            
+            if (cacheEntry!.IsExpired)
+            {
+                // Set item for purging:
+                SetItemForPurging(session, cacheEntry);
+                await session.SendStringAsync($"{Nil}\n");
+                return;
+            }
 
-            _cache.Set(stringKey, cacheEntry);
-            return session.SendStringAsync("OK\n");
+            var oldValue = cacheEntry.Value;
+            cacheEntry.Value = stringValue;
+            cacheEntry.TimeToLive = default;
+            cacheEntry.LastAccessedAt = DateTimeOffset.Now;
+                
+            await session.SendStringAsync($"{oldValue}\n");
         }
     }
 
@@ -52,7 +59,7 @@ public static class StringSetEx
             string[] parameters,
             CancellationToken cancellationToken = default)
         {
-            if (parameters.Length != 3)
+            if (parameters.Length != 2)
             {
                 return ValueTask.FromResult(ValidationResult.Failure("Incorrect number of parameters."));
             }
@@ -63,13 +70,7 @@ public static class StringSetEx
                 return ValueTask.FromResult(ValidationResult.Failure("String key exceeds maximum limit of 1KB."));
             }
 
-            var expiryInSeconds = parameters[1].Trim();
-            if (!int.TryParse(expiryInSeconds, out _))
-            {
-                return ValueTask.FromResult(ValidationResult.Failure("Expiry should be an integer."));
-            }
-
-            var stringValue = parameters[2].Trim();
+            var stringValue = parameters[1].Trim();
             if (stringValue.Length * 2 > StringValueSizeLimitInBytes)
             {
                 return ValueTask.FromResult(ValidationResult.Failure("String value exceeds maximum limit of 512MB."));

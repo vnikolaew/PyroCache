@@ -5,50 +5,54 @@ using SuperSocket;
 using SuperSocket.Command;
 using SuperSocket.ProtoBase;
 
-namespace PyroCache.Commands;
+namespace PyroCache.Commands.String;
 
-public static class StringSet
+public static class StringGet
 {
     /// <summary>
-    /// SET key_1 value_1
+    /// GET key_1
     /// </summary>
-    [Command(Key = "SET")]
+    [Command(Key = "GET")]
     public sealed class Command : BasePyroCommand
     {
         public Command(PyroCache cache) : base(cache)
         {
         }
 
-        protected override ValueTask ExecuteCoreAsync(
+        protected override async ValueTask ExecuteCoreAsync(
             IAppSession session,
             StringPackageInfo package)
         {
             var stringKey = package.Parameters[0].Trim();
-            var stringValue = package.Parameters[1].Trim();
-            var cacheEntry = new StringCacheEntry
+            if (!_cache.TryGet<StringCacheEntry>(stringKey, out var cacheEntry))
             {
-                Key = stringKey,
-                Value = stringValue,
-                CreatedAt = DateTimeOffset.Now,
-                LastAccessedAt = DateTimeOffset.Now,
-            };
-            
-            _cache.Set(stringKey, cacheEntry);
-            return session.SendStringAsync("OK\n");
+                await session.SendStringAsync($"{Nil}\n");
+                return;
+            }
+
+            if (cacheEntry!.IsExpired)
+            {
+                // Set item for purging:
+                SetItemForPurging(session, cacheEntry);
+                await session.SendStringAsync($"{Nil}\n");
+                return;
+            }
+
+            cacheEntry.LastAccessedAt = DateTimeOffset.Now;
+            await session.SendStringAsync($"{cacheEntry.Value}\n");
         }
+
     }
 
     public sealed class Validator : ICommandValidator<Command>
     {
-        private const int StringValueSizeLimitInBytes = 1024 * 1024 * 512;
-
         private const int StringKeySizeLimitInBytes = 1024;
 
         public ValueTask<ValidationResult> ValidateAsync(
             string[] parameters,
             CancellationToken cancellationToken = default)
         {
-            if (parameters.Length != 2)
+            if (parameters.Length != 1)
             {
                 return ValueTask.FromResult(ValidationResult.Failure("Incorrect number of parameters."));
             }
@@ -57,12 +61,6 @@ public static class StringSet
             if (stringKey.Length * 2 > StringKeySizeLimitInBytes)
             {
                 return ValueTask.FromResult(ValidationResult.Failure("String key exceeds maximum limit of 1KB."));
-            }
-
-            var stringValue = parameters[1].Trim();
-            if (stringValue.Length * 2 > StringValueSizeLimitInBytes)
-            {
-                return ValueTask.FromResult(ValidationResult.Failure("String value exceeds maximum limit of 512MB."));
             }
 
             return ValueTask.FromResult(ValidationResult.Success());

@@ -1,18 +1,19 @@
-﻿using PyroCache.Commands.Common;
+﻿using System.Text;
+using PyroCache.Commands.Common;
 using PyroCache.Entries;
 using PyroCache.Extensions;
 using SuperSocket;
 using SuperSocket.Command;
 using SuperSocket.ProtoBase;
 
-namespace PyroCache.Commands;
+namespace PyroCache.Commands.Hashes;
 
-public static class StringGet
+public static class HashHStrLen
 {
     /// <summary>
-    /// GET key_1
+    /// HSTRLEN key field
     /// </summary>
-    [Command(Key = "GET")]
+    [Command(Key = "HSTRLEN")]
     public sealed class Command : BasePyroCommand
     {
         public Command(PyroCache cache) : base(cache)
@@ -23,25 +24,26 @@ public static class StringGet
             IAppSession session,
             StringPackageInfo package)
         {
-            var stringKey = package.Parameters[0].Trim();
-            if (!_cache.TryGet<StringCacheEntry>(stringKey, out var cacheEntry))
+            var hashKey = package.Parameters[0].Trim();
+            var hashField = package.Parameters[1].Trim();
+            _cache.TryGet<ICacheEntry>(hashKey, out var entry);
+
+            if (entry is not HashCacheEntry hashCacheEntry)
             {
-                await session.SendStringAsync($"{Nil}\n");
+                await session.SendStringAsync($"{Zero}\n");
                 return;
             }
 
-            if (cacheEntry!.IsExpired)
+            var fieldValue = hashCacheEntry.Get(hashField);
+            if (fieldValue is null)
             {
-                // Set item for purging:
-                SetItemForPurging(session, cacheEntry);
-                await session.SendStringAsync($"{Nil}\n");
-                return;
+                await session.SendStringAsync($"{Zero}\n");
             }
-
-            cacheEntry.LastAccessedAt = DateTimeOffset.Now;
-            await session.SendStringAsync($"{cacheEntry.Value}\n");
+            else
+            {
+                await session.SendStringAsync($"{fieldValue.Length / 2}\n");
+            }
         }
-
     }
 
     public sealed class Validator : ICommandValidator<Command>
@@ -52,15 +54,14 @@ public static class StringGet
             string[] parameters,
             CancellationToken cancellationToken = default)
         {
-            if (parameters.Length != 1)
+            if (parameters.Length != 2)
             {
                 return ValueTask.FromResult(ValidationResult.Failure("Incorrect number of parameters."));
             }
 
-            var stringKey = parameters[0].Trim();
-            if (stringKey.Length * 2 > StringKeySizeLimitInBytes)
+            if (parameters.Any(p => p.Trim().Length * 2 > StringKeySizeLimitInBytes))
             {
-                return ValueTask.FromResult(ValidationResult.Failure("String key exceeds maximum limit of 1KB."));
+                return ValueTask.FromResult(ValidationResult.Failure("Hash key exceeds maximum limit of 1KB."));
             }
 
             return ValueTask.FromResult(ValidationResult.Success());

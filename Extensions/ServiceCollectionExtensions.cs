@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PyroCache.Commands.Common;
 
@@ -6,6 +7,18 @@ namespace PyroCache.Extensions;
 
 public static class ServiceCollectionExtensions
 {
+    public static IServiceCollection AddSettings<T>(
+        this IServiceCollection services,
+        IConfiguration configuration)
+        where T : class, new()
+    {
+        var settings = new T();
+        configuration.Bind(typeof(T).Name, settings);
+        services.AddSingleton(settings);
+        
+        return services;
+    }
+
     public static IServiceCollection AddValidators(
         this IServiceCollection services,
         params Assembly[] assemblies)
