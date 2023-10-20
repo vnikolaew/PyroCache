@@ -7,7 +7,7 @@ using SuperSocket.ProtoBase;
 
 namespace PyroCache.Commands.Common;
 
-public abstract class BasePyroCommand : IAsyncCommand<StringPackageInfo>
+public abstract class BasePyroCommand : IAsyncCommand<PyroSession, StringPackageInfo>
 {
     protected readonly PyroCache _cache;
 
@@ -26,9 +26,11 @@ public abstract class BasePyroCommand : IAsyncCommand<StringPackageInfo>
     protected BasePyroCommand(PyroCache cache) => _cache = cache;
 
     public async ValueTask ExecuteAsync(
-        IAppSession session,
+        PyroSession session,
         StringPackageInfo package)
     {
+        if(session.IsCanceled()) return;
+        
         if (session[ValidateCommandFilterAttribute.ErrorKey] is string error)
         {
             await session.SendStringAsync(error);
