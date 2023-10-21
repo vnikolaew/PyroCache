@@ -121,4 +121,7 @@ public sealed class SetCacheEntry : CacheEntryBase<SetCacheEntry>
     {
         throw new NotImplementedException();
     }
+
+    public override SetCacheEntry Clone()
+        => new() { Key = Key, Value = new HashSet<string>(Value), TimeToLive = TimeToLive };
 }

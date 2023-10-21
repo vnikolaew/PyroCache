@@ -34,4 +34,7 @@ public class StringCacheEntry : CacheEntryBase<StringCacheEntry>
     {
         throw new NotImplementedException();
     }
+
+    public override StringCacheEntry Clone()
+        => new() { Key = Key, Value = Value, TimeToLive = TimeToLive };
 }

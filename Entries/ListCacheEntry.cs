@@ -6,6 +6,8 @@ public class ListCacheEntry : CacheEntryBase<ListCacheEntry>
 
     public event EventHandler<byte[]> OnItemAdded;
 
+    public IEnumerable<byte[]> Value => _list.AsEnumerable();
+
     public event EventHandler<byte[]> OnItemRemoved;
 
     public int Length => _list.Count;
@@ -134,7 +136,7 @@ public class ListCacheEntry : CacheEntryBase<ListCacheEntry>
     public override async Task Serialize(Stream stream)
     {
         var buffer = new byte[1 + 4 + 4 * _list.Count + _list.Sum(e => e.Length)];
-        buffer[0] = (byte) CacheEntryType.List;
+        buffer[0] = (byte)CacheEntryType.List;
 
         var currIdx = 1;
         var sizeBuffer = BitConverter.GetBytes(_list.Count);
@@ -144,10 +146,10 @@ public class ListCacheEntry : CacheEntryBase<ListCacheEntry>
         foreach (var entry in _list)
         {
             var entrySizeBuffer = BitConverter.GetBytes(entry.Length);
-            
+
             entrySizeBuffer.CopyTo(buffer, currIdx);
             currIdx += 4;
-            
+
             entry.CopyTo(buffer, currIdx);
             currIdx += entry.Length;
         }
@@ -158,5 +160,16 @@ public class ListCacheEntry : CacheEntryBase<ListCacheEntry>
     public override async Task<ListCacheEntry?> Deserialize(Stream stream)
     {
         throw new NotImplementedException();
+    }
+
+    public override ListCacheEntry Clone()
+    {
+        var clone = new ListCacheEntry { Key = Key };
+        foreach (var bytes in _list)
+        {
+            clone._list.AddFirst(bytes);
+        }
+
+        return clone;
     }
 }

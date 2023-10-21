@@ -35,14 +35,14 @@ public class HashCacheEntry : CacheEntryBase<HashCacheEntry>
 
         integer += amount;
         Value[key] = Encoding.UTF8.GetBytes(integer.ToString());
-        
+
         newValue = integer;
         return true;
     }
 
     public byte[]? Get(string key)
         => Value.TryGetValue(key, out var value) ? value : default;
-    
+
     public int Delete(IEnumerable<string> keys)
         => keys
             .Select(key => Value.Remove(key))
@@ -69,4 +69,7 @@ public class HashCacheEntry : CacheEntryBase<HashCacheEntry>
     {
         throw new NotImplementedException();
     }
+
+    public override HashCacheEntry Clone()
+        => new() { Key = Key, Value = new Dictionary<string, byte[]>(Value), TimeToLive = TimeToLive };
 }

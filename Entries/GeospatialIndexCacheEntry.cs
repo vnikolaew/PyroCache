@@ -1,7 +1,6 @@
 ﻿using Geohash;
 using NetTopologySuite;
 using NetTopologySuite.Geometries;
-using NetTopologySuite.Geometries.Implementation;
 
 namespace PyroCache.Entries;
 
@@ -11,7 +10,7 @@ public class GeospatialIndexCacheEntry : CacheEntryBase<GeospatialIndexCacheEntr
         NtsGeometryServices.Instance.CreateGeometryFactory(4326);
 
     private static readonly Geohasher Geohasher = new();
-    
+
     static GeospatialIndexCacheEntry()
     {
         NtsGeometryServices.Instance = new NtsGeometryServices(
@@ -21,7 +20,7 @@ public class GeospatialIndexCacheEntry : CacheEntryBase<GeospatialIndexCacheEntr
             GeometryOverlay.NG,
             new CoordinateEqualityComparer());
     }
-    
+
     private readonly Dictionary<string, Point> _points = new();
 
     public int Size => _points.Count;
@@ -35,13 +34,15 @@ public class GeospatialIndexCacheEntry : CacheEntryBase<GeospatialIndexCacheEntr
     public List<string?> GeoHash(IEnumerable<string> members)
         => members
             .Select(m => _points.TryGetValue(m, out var member)
-                ? Geohasher.Encode(member.X, member.Y) : null)
+                ? Geohasher.Encode(member.X, member.Y)
+                : null)
             .ToList();
-    
+
     public List<Point?> GeoPositions(IEnumerable<string> members)
         => members
             .Select(m => _points.TryGetValue(m, out var member)
-                ? member : null)
+                ? member
+                : null)
             .ToList();
 
     public double Dist(Point pointOne, Point pointTwo)
@@ -61,11 +62,11 @@ public class GeospatialIndexCacheEntry : CacheEntryBase<GeospatialIndexCacheEntr
             new(origin.X + width / 2, origin.Y + height / 2),
             new(origin.X + width / 2, origin.Y - height / 2),
         });
-        
+
         return _points.Where(point => box.Contains(point.Value)).ToList();
     }
-    
-    
+
+
     public override Task Serialize(Stream stream)
     {
         throw new NotImplementedException();
@@ -74,5 +75,16 @@ public class GeospatialIndexCacheEntry : CacheEntryBase<GeospatialIndexCacheEntr
     public override Task<GeospatialIndexCacheEntry?> Deserialize(Stream stream)
     {
         throw new NotImplementedException();
+    }
+
+    public override GeospatialIndexCacheEntry Clone()
+    {
+        var clone = new GeospatialIndexCacheEntry { Key = Key };
+        foreach (var keyValuePair in _points)
+        {
+            clone._points.Add(keyValuePair.Key, keyValuePair.Value);
+        }
+
+        return clone;
     }
 }

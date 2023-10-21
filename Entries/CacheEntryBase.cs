@@ -14,8 +14,12 @@ public abstract class CacheEntryBase<TEntry> : ICacheEntry
 
     public abstract Task<TEntry?> Deserialize(Stream stream);
 
+    public void Touch() => LastAccessedAt = DateTimeOffset.Now;
+
     public bool IsExpired
         => TimeToLive is not null && DateTimeOffset.Now > CreatedAt + TimeToLive;
+
+    public abstract object Clone();
 }
 
 public interface ICacheEntry
@@ -29,6 +33,10 @@ public interface ICacheEntry
     public TimeSpan? TimeToLive { get; set; }
     
     public Task Serialize(Stream stream);
+    
+    public object Clone();
+
+    public void Touch();
 
     // public Task<TEntry?> Deserialize(Stream stream);
 }

@@ -97,6 +97,9 @@ public class SortedSetCacheEntry : CacheEntryBase<SortedSetCacheEntry>
     {
         throw new NotImplementedException();
     }
+
+    public override SortedSetCacheEntry Clone()
+        => new() { Key = Key, Value = new SortedSet<SortedSetEntry>(Value), TimeToLive = TimeToLive };
 }
 
 public class SortedSetEntry : IComparable<SortedSetEntry>, IEquatable<SortedSetEntry>
