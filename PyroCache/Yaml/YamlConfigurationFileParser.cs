@@ -13,7 +13,7 @@ internal class YamlConfigurationFileParser
 
     private readonly Stack<string> _context = new();
 
-    private string _currentPath;
+    private string _currentPath = default!;
 
     public YamlConfigurationFileParser(string? sectionName = default)
         => _sectionName = sectionName ?? string.Empty;

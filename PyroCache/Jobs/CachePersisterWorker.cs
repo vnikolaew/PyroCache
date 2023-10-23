@@ -12,12 +12,15 @@ internal sealed class CachePersisterWorker : BackgroundService
 
     private const string DataFileName = "pyro.db";
 
+    private string DataFile
+        => Path.Combine(_environment.ContentRootPath, _cacheSettings.Dir, DataFileName);
+
     private readonly PyroCache _pyroCache;
 
     private readonly PeriodicTimer _periodicTimer;
 
-    private readonly List<PeriodicTimer> _saveTimers;
-    
+    private readonly IDictionary<SaveConfiguration, PeriodicTimer> _saveTimers;
+
     private readonly IHostEnvironment _environment;
 
     public CachePersisterWorker(
@@ -29,8 +32,10 @@ internal sealed class CachePersisterWorker : BackgroundService
         _cacheSettings = cacheSettings;
         _pyroCache = pyroCache;
         _logger = logger;
-        _saveTimers = cacheSettings.Save
-            .Select(s => new PeriodicTimer(TimeSpan.FromSeconds(s)))
+        _saveTimers = cacheSettings
+            .SaveConfigurations
+            .ToDictionary(c => c, c => new PeriodicTimer(TimeSpan.FromSeconds(c.Seconds)));
+
         _environment = environment;
         _periodicTimer = new PeriodicTimer(
             TimeSpan.FromSeconds(_cacheSettings.FlushIntervalSeconds ?? 10));
@@ -38,20 +43,41 @@ internal sealed class CachePersisterWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var dataFileName = Path.Combine(
-            _environment.ContentRootPath,
-            _cacheSettings.DataDirectory, DataFileName);
-
         // First load initial Cache data:
-        await using var readStream = File.OpenWrite(dataFileName);
-        await _pyroCache.Deserialize(readStream);
-        _logger.LogInformation("Loaded {ItemCount} items from DB file.", _pyroCache.Items.Count);
+        await using var readStream = File.OpenRead(DataFile);
+        if(readStream.Length > 0) await _pyroCache.Deserialize(readStream);
+        _logger.LogInformation("Loaded {ItemCount} items from DB file", _pyroCache.Items.Count);
 
-        while (await _periodicTimer.WaitForNextTickAsync(stoppingToken))
+        await RunSaveWorkers(stoppingToken);
+        Console.WriteLine();
+    }
+
+    private async Task RunSaveWorkers(CancellationToken cancellationToken)
+    {
+        var tasks = new List<Task>();
+        foreach (var (config, timer) in _saveTimers)
         {
-            await using var fileStream = File.OpenWrite(dataFileName);
-            await _pyroCache.Serialize(fileStream);
-            _logger.LogInformation("Database flushed at [{DateTime:u}].", DateTimeOffset.Now);
+            var task = Task.Factory.StartNew(async () =>
+            {
+                while (await timer.WaitForNextTickAsync(cancellationToken))
+                {
+                    // Check if min changes have occured in the cache:
+                    var changedItemsCount = _pyroCache.Items
+                        .Select(i => i.Value.LastAccessedAt)
+                        .Count(lat => lat >= DateTimeOffset.Now - timer.Period);
+
+                    if (changedItemsCount >= config.MinChangesAllowed)
+                    {
+                        // Perform cache save:
+                        await using var fileStream = File.OpenWrite(DataFile);
+                        await _pyroCache.Serialize(fileStream);
+                        _logger.LogInformation("Database flushed at [{DateTime:u}]", DateTimeOffset.Now);
+                    }
+                }
+            }, cancellationToken, TaskCreationOptions.LongRunning, TaskScheduler.Current);
+            tasks.Add(task);
         }
+        
+        await Task.WhenAll(tasks);
     }
 }

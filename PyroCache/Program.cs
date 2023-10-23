@@ -1,5 +1,7 @@
-﻿using System.Reflection;
+﻿using System.Net;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -13,14 +15,15 @@ using SuperSocket.Command;
 using SuperSocket.ProtoBase;
 
 [assembly: InternalsVisibleTo("PyroCache.Tests")]
-var hostBuilder = SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePipelineFilter>();
+var hostBuilder = SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePipelineFilter>(args);
 {
     hostBuilder
         .ConfigureSuperSocket(opts =>
         {
+            // opts.DefaultTextEncoding = Encoding.UTF8;
             opts.AddListener(new ListenOptions
             {
-                Ip = "Any",
+                Ip = IPAddress.Loopback.ToString(),
                 Port = 1001
             });
         })
@@ -28,6 +31,7 @@ var hostBuilder = SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePi
         .UseCommand(opts =>
         {
             opts.AddCommandAssembly(Assembly.GetExecutingAssembly());
+            opts.AddGlobalCommandFilter<CommandLoggingFilterAttribute>();
             opts.AddGlobalCommandFilter<ValidateCommandFilterAttribute>();
             opts.AddGlobalCommandFilter<CacheEntryPurgerFilterAttribute>();
         })

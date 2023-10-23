@@ -10,6 +10,7 @@ save:
   - 3600 1
   - 300 100
   - 60 10000
+  - 10 0
 compression: yes
 dbfilename: pyro_cache.db
 dir: ./
