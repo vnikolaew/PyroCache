@@ -93,7 +93,9 @@ public sealed class SetCacheEntry : CacheEntryBase<SetCacheEntry>
     }
 
     // SET_LENGTH 1ST_ITEM_LENGTH 1ST_ITEM 2ND_ITEM_LENGTH 2ND_ITEM ...
-    public override async Task Serialize(Stream stream)
+    public override CacheEntryType EntryType => CacheEntryType.Set;
+
+    protected override async Task SerializeCore(Stream stream)
     {
         var buffer = new byte[1 + 4 + 4 * Value.Count + Value.Sum(e => e.Length * 2)];
         buffer[0] = (byte)CacheEntryType.Set;

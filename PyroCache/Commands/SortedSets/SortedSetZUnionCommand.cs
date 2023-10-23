@@ -11,10 +11,10 @@ namespace PyroCache.Commands.SortedSets;
 public static class SortedSetZUnion
 {
     /// <summary>
-    /// ZSCORE key member
-    /// [WITHSCORES]
+    /// ZUNION numkeys key [key ...] [WEIGHTS weight [weight ...]]
+    /// [AGGREGATE <SUM | MIN | MAX>] [WITHSCORES]
     /// </summary>
-    [Command(Key = "ZSCORE")]
+    [Command(Key = "ZUNION")]
     public sealed class Command : BasePyroCommand
     {
         public Command(PyroCache cache) : base(cache)
@@ -27,24 +27,40 @@ public static class SortedSetZUnion
         {
             var numKeys = int.Parse(package.Parameters[0].Trim());
             var keys = package.Parameters[1..(1 + numKeys)].ToArray();
+            var withScores = package.Parameters.Any(p => p is "WITHSCORES");
 
-            _cache.TryGet<ICacheEntry>(setKey, out var setEntry);
-            if (setEntry is not SortedSetCacheEntry sortedSetCacheEntry)
-            {
-                await session.SendStringAsync($"{Zero}\n");
-                return;
-            }
+            var sortedSets = keys
+                .Select(key => _cache.TryGet<SortedSetCacheEntry>(key, out var entry) ? entry : null)
+                .Where(_ => _ is not null)
+                .Cast<SortedSetCacheEntry>()
+                .ToList();
 
-            var entry = sortedSetCacheEntry.Value
-                .FirstOrDefault(e => e.Value == setMember);
-            if (entry is not null)
-            {
-                await session.SendStringAsync($"{entry.Score:F}\n");
-            }
-            else
+            if (sortedSets.Count == 0)
             {
                 await session.SendStringAsync($"{Nil}\n");
             }
+
+            var combinedSet = new SortedSet<SortedSetEntry>(
+                sortedSets.SelectMany(s => s.Value)
+            );
+
+            string response;
+            if (withScores)
+            {
+                response = combinedSet
+                    .Select((e,
+                            index) => $"{index * 2 + 1}) {e.Value}\n{index * 2 + 2}) {e.Score:F}")
+                    .Join("\n");
+            }
+            else
+            {
+                response = combinedSet
+                    .Select((e,
+                            index) => $"{index + 1}) {e.Value}")
+                    .Join("\n");
+            }
+
+            await session.SendStringAsync($"{response}\n");
         }
     }
 
@@ -56,11 +72,11 @@ public static class SortedSetZUnion
             string[] parameters,
             CancellationToken cancellationToken = default)
         {
-            if (parameters.Length != 2)
+            if (parameters.Length < 2)
             {
                 return ValueTask.FromResult(ValidationResult.Failure("Incorrect number of parameters."));
             }
-            
+
             var numKeys = parameters[0].Trim();
             if (!int.TryParse(numKeys, NumberStyles.Integer, new NumberFormatInfo(), out _))
             {

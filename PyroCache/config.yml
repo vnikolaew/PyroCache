@@ -1,0 +1,23 @@
+﻿include:
+  - /path/to/local.conf
+  - /path/to/other.conf
+bind:
+  - 127.0.0.1
+port: 2001
+logfile: /path/to/logfile.log
+databases: 16
+save:
+  - 3600 1
+  - 300 100
+  - 60 10000
+compression: yes
+dbfilename: pyro_cache.db
+dir: ./
+requirepass: pass
+maxclients: 1000
+maxmemory: 536870912
+max-memory-policy: volatile-lru
+appendonly: no
+appendfilename: "appendonly.aof"
+appenddirname: "appendonlydir"
+appenddfsync: everysec

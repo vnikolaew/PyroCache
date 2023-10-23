@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -6,10 +7,12 @@ using PyroCache.Extensions;
 using PyroCache.Filters;
 using PyroCache.Jobs;
 using PyroCache.Settings;
+using PyroCache.Yaml;
 using SuperSocket;
 using SuperSocket.Command;
 using SuperSocket.ProtoBase;
 
+[assembly: InternalsVisibleTo("PyroCache.Tests")]
 var hostBuilder = SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePipelineFilter>();
 {
     hostBuilder
@@ -29,7 +32,8 @@ var hostBuilder = SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePi
             opts.AddGlobalCommandFilter<CacheEntryPurgerFilterAttribute>();
         })
         .UseEnvironment(Environments.Development)
-        .ConfigureServices((ctx, services) =>
+        .ConfigureServices((ctx,
+                services) =>
             services
                 .AddSingleton<PyroCache.PyroCache>()
                 .AddSettings<CacheSettings>(ctx.Configuration)
@@ -37,6 +41,7 @@ var hostBuilder = SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePi
                 .AddValidators(Assembly.GetExecutingAssembly()));
 
     hostBuilder
+        .ConfigureHostConfiguration(builder => builder.AddYamlFile("config.yml"))
         .UseConsoleLifetime()
         .ConfigureLogging(builder =>
         {

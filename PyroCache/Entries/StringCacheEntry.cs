@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using System.Text;
+﻿using System.Text;
 
 namespace PyroCache.Entries;
 
@@ -7,7 +6,9 @@ public class StringCacheEntry : CacheEntryBase<StringCacheEntry>
 {
     public required string Value { get; set; }
 
-    public override async Task Serialize(Stream stream)
+    public override CacheEntryType EntryType => CacheEntryType.String;
+
+    protected override async Task SerializeCore(Stream stream)
     {
         var keyBuffer = Encoding.UTF8.GetBytes(Key);
         var valueBuffer = Encoding.UTF8.GetBytes(Value);

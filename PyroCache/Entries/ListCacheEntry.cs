@@ -133,7 +133,9 @@ public class ListCacheEntry : CacheEntryBase<ListCacheEntry>
     }
 
     // LIST_LENGTH 1ST_ITEM_LENGTH 1ST_ITEM 2ND_ITEM_LENGTH 2ND_ITEM ...
-    public override async Task Serialize(Stream stream)
+    public override CacheEntryType EntryType => CacheEntryType.List;
+
+    protected override async Task SerializeCore(Stream stream)
     {
         var buffer = new byte[1 + 4 + 4 * _list.Count + _list.Sum(e => e.Length)];
         buffer[0] = (byte)CacheEntryType.List;

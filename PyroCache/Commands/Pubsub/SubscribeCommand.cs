@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using System.Text.RegularExpressions;
 using PyroCache.Commands.Common;
 using PyroCache.Entries;
 using PyroCache.Extensions;
@@ -9,12 +8,12 @@ using SuperSocket.ProtoBase;
 
 namespace PyroCache.Commands.Pubsub;
 
-public static class PSubscribe
+public static class Subscribe
 {
     /// <summary>
-    /// PSUBSCRIBE pattern [pattern ...]
+    /// SUBSCRIBE channel [channel ...]
     /// </summary>
-    [Command(Key = "PSUBSCRIBE")]
+    [Command(Key = "SUBSCRIBE")]
     public sealed class Command : BasePyroCommand
     {
         public Command(PyroCache cache) : base(cache)
@@ -25,17 +24,24 @@ public static class PSubscribe
             IAppSession session,
             StringPackageInfo package)
         {
-            var patterns = package.Parameters.Select(p => new Regex(p)).ToArray();
-
+            var channelKeys = package.Parameters[1..].ToHashSet();
+            
             var channels = _cache
-                .Items
-                .Where(e => e.Value is ChannelCacheEntry
-                            && patterns.Any(p => p.IsMatch(e.Key)))
+                .Entries<ChannelCacheEntry>(e => channelKeys.Contains(e.Key))
                 .Select(_ => _.Value)
-                .Cast<ChannelCacheEntry>()
                 .ToList();
+            
+            // Add new subscriber to each channel:
+            var subscriptions = channels
+                .Select(channel => channel.AddSubscriber(session.SessionID))
+                .ToDictionary(subscription => subscription.ChannelName);
 
-            var mergedMessages = channels.Select(c => c.ReadAllAsync()).Merge();
+            var mergedMessages = channels
+                .Select(c => c.ReadAllAsync()
+                    // Attach unsubscribe cancellation token to read operation:
+                    .WithCancellation(subscriptions[c.Key].TokenSource.Token))
+                .Merge();
+
             await foreach (var message in mergedMessages)
             {
                 await session.SendStringAsync($"{Encoding.UTF8.GetString(message)}\n");

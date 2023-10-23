@@ -7,4 +7,6 @@ public enum CacheEntryType : byte
     Set,
     SortedSet,
     Hash,
+    Geospatial,
+    Channel
 }

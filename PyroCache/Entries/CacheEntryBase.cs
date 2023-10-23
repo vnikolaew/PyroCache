@@ -4,15 +4,24 @@ public abstract class CacheEntryBase<TEntry> : ICacheEntry
 {
     public required string Key { get; set; }
 
+    public abstract CacheEntryType EntryType { get; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
 
     public DateTimeOffset LastAccessedAt { get; set; } = DateTimeOffset.Now;
 
     public TimeSpan? TimeToLive { get; set; }
 
-    public abstract Task Serialize(Stream stream);
+    protected abstract Task SerializeCore(Stream stream);
+
+    public async Task Serialize(Stream stream)
+    {
+        await stream.WriteAsync(new[] { (byte) EntryType });
+        await SerializeCore(stream);
+    }
 
     public abstract Task<TEntry?> Deserialize(Stream stream);
+
+    public object DeserializeI(Stream stream) => Deserialize(stream);
 
     public void Touch() => LastAccessedAt = DateTimeOffset.Now;
 
@@ -26,6 +35,8 @@ public interface ICacheEntry
 {
     public string Key { get; set; }
 
+    public CacheEntryType EntryType { get; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset LastAccessedAt { get; set; }
@@ -38,5 +49,5 @@ public interface ICacheEntry
 
     public void Touch();
 
-    // public Task<TEntry?> Deserialize(Stream stream);
+    object DeserializeI(Stream stream);
 }

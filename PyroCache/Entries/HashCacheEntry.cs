@@ -60,7 +60,9 @@ public class HashCacheEntry : CacheEntryBase<HashCacheEntry>
         => keys.Select(key =>
             Value.TryGetValue(key, out var value) ? value : default);
 
-    public override async Task Serialize(Stream stream)
+    public override CacheEntryType EntryType => CacheEntryType.Hash;
+
+    protected override async Task SerializeCore(Stream stream)
     {
         throw new NotImplementedException();
     }
